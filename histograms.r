@@ -4,6 +4,8 @@ library(gplots)
 library(RColorBrewer)
 
 DIR <- 'histograms/'
+dir.create(DIR)
+
 
 args <- commandArgs(trailingOnly=T)
 if (length(args) != 1) {
@@ -56,6 +58,7 @@ for (nc in unique(judgments$n)) {
 }
 
 for (v in levels(judgments$vignette)) {
+    dir.create(paste0(DIR, v))
     png(paste0(DIR, v, '/hist_all.png'), height=1000, width=1000)
     plot_hist(subset(judgments, vignette==v))
     dev.off()
