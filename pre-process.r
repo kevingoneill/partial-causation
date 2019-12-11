@@ -14,26 +14,27 @@ data_wide <- read.csv(in_file, header=TRUE, stringsAsFactors=FALSE)
 
 ## remove unneeded rows/cols
 data_wide <- data_wide[-c(1, 2, 3),]
-data_wide <- data_wide[, -c(1:5, 7:20, 54, 56, 58)]
+data_wide <- data_wide[, -c(1:5, 7:20)]
 
 ## group the vignettes into two columns
-df <- gather(data_wide, question, response, Bridge_1_Resp_1:Moving_Many_Conf_1)
-colnames(df) <- c('duration', 'age', 'sex', 'attn_check', 'n', 'nreq', 'id', 'question', 'response')
-df <- df[order(df$n, df$nreq, df$id),]
+df <- pivot_longer(data_wide, E_1_C_N_Rating_1:G_4_D_A_Confidence_1,
+                   names_to='question', values_to='response')
+colnames(df) <- c('duration', 'age', 'sex', 'attn_check',
+                  'id', 'question', 'response')
+df <- df[order(df$id),]
 df <- df[-which(df$response == ''),]   # filter out missing responses
 
 ## split question identifier into conditions
-df <- separate(df, 'question', c('vignette', 'ncond', 'measure'),
+df <- separate(df, 'question', c('vignette', 'n', 'structure',
+                                 'normality', 'measure'),
                sep='_', extra='drop')
 df$measure <- tolower(df$measure)
 
 ## convert back to wide format- one row per vignette, columns for resp, conf
-df <- df %>% spread(measure, response) %>% rename("rating"=resp, "confidence"=conf)
-df$condition <- ifelse(df$nreq == df$n, 'JC', 'OD')
-df$condition[1:99] <- 'OD'
+df <- df %>% pivot_wider(names_from=measure, values_from=response)
 
 df <- df[, c('id', 'attn_check', 'age', 'sex', 'duration',
-             'vignette', 'n', 'nreq', 'condition', 'rating', 'confidence')]
+             'vignette', 'n', 'structure', 'normality', 'rating', 'confidence')]
 
 ## save demographic info
 #write.csv(subset(data_wide, select=c('Age', 'Sex', 'AttnCheck')),
@@ -41,5 +42,4 @@ df <- df[, c('id', 'attn_check', 'age', 'sex', 'duration',
 
 ## filter out by attention check
 df <- subset(subset(df, attn_check=='Yes.'), select=-c(attn_check))
-
 write.csv(df, out_file, row.names=FALSE)
