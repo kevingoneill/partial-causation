@@ -116,12 +116,11 @@ model_weights(mMulti, mReduced, mZOIB)
 
 ## Plot raw causal ratings
 judgments %>%
-    ggplot(aes(x=n, y=rating,
-               group=normality, fill=normality)) +
+    ggplot(aes(x=n, y=rating, group=normality, fill=normality, side=ifelse(normality=='N', 'left', 'right'))) +
     ylab('Causal Rating') + ylim(0, 1) + xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.85), adjust=0.75,
-             n=nrow(judgments), normalize='panels', geom='slab') +
-    stat_pointinterval(position=position_dodge(0.85)) +
+    stat_halfeye(mapping=aes(alpha=n), position=position_dodge(0.5), adjust=0.75,
+                 n=nrow(judgments), normalize='panels', geom='slab') +
+    stat_pointinterval(position=position_dodge(0.5)) +
     scale_alpha_discrete(range = c(0.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality', labels=c('Normal', 'Abnormal')) +
     facet_grid(structure ~ ., labeller=labeller(structure=c(C='Conjunctive', D='Disjunctive'))) +
@@ -130,12 +129,11 @@ ggsave('plots/data-ratings.png', width=6, height=4)
 
 ## Plot raw confidence ratings
 judgments %>%
-    ggplot(aes(x=n, y=confidence,
-               group=normality, fill=normality)) +
+    ggplot(aes(x=n, y=confidence, group=normality, fill=normality, side=ifelse(normality=='N', 'left', 'right'))) +
     ylab('Confidence') + ylim(0, 1) + xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.85), adjust=0.75,
+    stat_halfeye(mapping=aes(alpha=n), position=position_dodge(0.5), adjust=0.75,
              n=nrow(judgments), normalize='panels', geom='slab') +
-    stat_pointinterval(position=position_dodge(0.85)) +
+    stat_pointinterval(position=position_dodge(0.5)) +
     scale_alpha_discrete(range = c(0.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality', labels=c('Normal', 'Abnormal')) +
     facet_grid(structure ~ ., labeller=labeller(structure=c(C='Conjunctive', D='Disjunctive'))) +
@@ -190,12 +188,12 @@ ggsave('plots/data-bivariate.png', plot.bivariate, width=5, height=5)
 ## extract model predictions
 constrain <- function (x) {pmax(0, pmin(1, x))}
 predictions <- full_join(predicted_draws(mMulti, judgments, resp='rating',
-                                         prediction='.prediction.rating'),
+                                         value='.prediction.rating'),
                          predicted_draws(mMulti, judgments, resp='confidence',
-                                         prediction='.prediction.confidence'))
-draws <- full_join(fitted_draws(mMulti, data_grid(judgments, normality, structure, n),
+                                         value='.prediction.confidence'))
+draws <- full_join(epred_draws(mMulti, data_grid(judgments, normality, structure, n),
                                 resp='rating', value='.rating', re_formula=NA),
-                   fitted_draws(mMulti, data_grid(judgments, normality, structure, n),
+                   epred_draws(mMulti, data_grid(judgments, normality, structure, n),
                                 resp='confidence', value='.confidence', re_formula=NA)) %>%
     median_hdi
 
@@ -203,29 +201,30 @@ draws <- full_join(fitted_draws(mMulti, data_grid(judgments, normality, structur
 ## Plot model predictions for causal ratings
 predictions %>%
     ggplot(aes(x=n, y=constrain(.prediction.rating),
-               group=normality, fill=normality)) +
+               group=normality, fill=normality, side=ifelse(normality=='N', 'left', 'right'))) +
     ylab('Causal Rating') + coord_cartesian(ylim=c(0, 1)) +
     xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
-             normalize='panels', geom='slab') +
-    stat_pointinterval(aes(y=.prediction.rating), position=position_dodge(0.75)) +
+    stat_halfeye(mapping=aes(alpha=n), position=position_dodge(0.5),
+                 normalize='panels', geom='slab') +
+    stat_pointinterval(aes(y=.prediction.rating), position=position_dodge(0.5)) +
     scale_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality',
                       labels=c('Normal', 'Abnormal')) +
     facet_grid(structure ~ .,
                labeller=labeller(structure=c(C='Conjunctive', D='Disjunctive'))) +
     theme_classic() + theme(panel.border=element_rect(color='black', fill=NA))
+
 ggsave('plots/predictions-ratings.png', width=6, height=4)
 
 ## Plot model predictions for confidence
 predictions %>%
     ggplot(aes(x=n, y=constrain(.prediction.confidence),
-               group=normality, fill=normality)) +
+               group=normality, fill=normality, side=ifelse(normality=='N', 'left', 'right'))) +
     ylab('Causal Rating') + coord_cartesian(ylim=c(0, 1)) +
     xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
+    stat_halfeye(mapping=aes(alpha=n), position=position_dodge(0.5),
              normalize='panels', geom='slab') +
-    stat_pointinterval(aes(y=.prediction.confidence), position=position_dodge(0.75)) +
+    stat_pointinterval(aes(y=.prediction.confidence), position=position_dodge(0.5)) +
     scale_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality',
                       labels=c('Normal', 'Abnormal')) +
@@ -288,11 +287,9 @@ ggsave('plots/figure3.png', width=10, height=5)
 ## Define ROPE ranges as 0.1 * sd of the DV
 ## NOTE: ROPEs for SD are estimated using posteriors over the data
 ROPE = sd(judgments$rating) * 0.1
-sdROPE <- sd(add_fitted_draws(judgments, mMulti, resp='rating',
-                              dpar='sigma', scale='linear')$sigma) * 0.1
+sdROPE <- sd(add_linpred_draws(judgments, mMulti, resp='rating', dpar='sigma')$sigma) * 0.1
 ROPE.conf <- sd(judgments$confidence) * 0.1
-sdROPE.conf <- sd(add_fitted_draws(judgments, mMulti, resp='confidence',
-                                   dpar='sigma', scale='linear')$sigma) * 0.1
+sdROPE.conf <- sd(add_linpred_draws(judgments, mMulti, resp='confidence', dpar='sigma')$sigma) * 0.1
 
 ## Gather marginal means of all parameters
 em.cause <- emmeans(mMulti, ~ normality*n*structure, resp='rating')
@@ -307,14 +304,12 @@ em.conf.sd <- emmeans(mMulti, ~ normality*n*structure, resp='confidence', dpar='
 
 
 fitRatings <- gather_emmeans_draws(em.cause) %>%
-    ggplot(aes(x=n, y=.value,
+    ggplot(aes(x=n, y=.value, side=ifelse(normality=='N', 'left', 'right'),
                group=normality, fill=normality)) +
     ylab('Estimated Mean\nCausal Judgment') + coord_cartesian(ylim=c(.5, 1)) +
     xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
-             n=10000, geom='slab') +
-    stat_pointinterval(position=position_dodge(0.75)) +
-    scale_alpha_discrete(range = c(.5, 1), guide='none') +
+    stat_halfeye(mapping=aes(slab_alpha=n), position=position_dodge(0.5), n=10000) +
+    scale_slab_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality', labels=c('Normal', 'Abnormal')) +
     facet_grid( ~ structure, labeller=labeller(structure=c(C='Conjunctive', D='Disjunctive'))) +
     theme_classic() +
@@ -327,15 +322,13 @@ fitRatings <- gather_emmeans_draws(em.cause) %>%
           legend.text=element_text(size=12))
 
 fitSD <- gather_emmeans_draws(em.cause.sd, 'sigma') %>%
-    ggplot(aes(x=n, y=exp(sigma),
+    ggplot(aes(x=n, y=exp(sigma), side=ifelse(normality=='N', 'left', 'right'),
                group=normality, fill=normality)) +
     ylab('Estimated\nStandard Deviation\nof Causal Judgments') +
     xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
-             n=10000, geom='slab') +
-    stat_pointinterval(position=position_dodge(0.75)) +
+    stat_halfeye(mapping=aes(slab_alpha=n), position=position_dodge(0.5), n=10000) +
     coord_cartesian(ylim=c(0.0, 0.5)) +
-    scale_alpha_discrete(range = c(.5, 1), guide='none') +
+    scale_slab_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality',
                       labels=c('Normal', 'Abnormal')) +
     facet_grid( ~ structure,
@@ -356,14 +349,12 @@ ggsave('plots/fit-ratings.png', width=9, height=6)
 
 
 fitConf <- gather_emmeans_draws(em.conf) %>%
-    ggplot(aes(x=n, y=.value,
+    ggplot(aes(x=n, y=.value, side=ifelse(normality=='N', 'left', 'right'),
                group=normality, fill=normality)) +
     ylab('Estimated\nMean Confidence') + coord_cartesian(ylim=c(.5, 1)) +
     xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
-             n=10000, geom='slab') +
-    stat_pointinterval(position=position_dodge(0.75)) +
-    scale_alpha_discrete(range = c(.5, 1), guide='none') +
+    stat_halfeye(mapping=aes(slab_alpha=n), position=position_dodge(0.5), n=10000) +
+    scale_slab_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality', labels=c('Normal', 'Abnormal')) +
     facet_grid( ~ structure, labeller=labeller(structure=c(C='Conjunctive', D='Disjunctive'))) +
     theme_classic() +
@@ -376,14 +367,12 @@ fitConf <- gather_emmeans_draws(em.conf) %>%
           legend.text=element_text(size=12))
 
 fitSDConf <- gather_emmeans_draws(em.conf.sd, 'sigma') %>%
-    ggplot(aes(x=n, y=exp(sigma),
+    ggplot(aes(x=n, y=exp(sigma), side=ifelse(normality=='N', 'left', 'right'),
                group=normality, fill=normality)) +
     ylab('Estimated\nStandard Deviation\nof Confidence') + xlab('Number of Causes') +
-    stat_eye(mapping=aes(alpha=n), position=position_dodge(0.75),
-             n=10000, geom='slab') +
-    stat_pointinterval(position=position_dodge(0.75)) +
+    stat_halfeye(mapping=aes(slab_alpha=n), position=position_dodge(0.5), n=10000) +
     coord_cartesian(ylim=c(0.0, 0.5)) +
-    scale_alpha_discrete(range = c(.5, 1), guide='none') +
+    scale_slab_alpha_discrete(range = c(.5, 1), guide='none') +
     scale_fill_manual(values=PALETTE, name='Normality',
                       labels=c('Normal', 'Abnormal')) +
     facet_grid( ~ structure,
